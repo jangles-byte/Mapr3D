@@ -1,0 +1,75 @@
+# Mapr3D
+
+A local **3D studio that pulls from maps**. Pick any place on Earth, load it into an
+editable 3D scene where *anything is printable*, select and refine individual objects
+(terrain, buildings, water, imported meshes), then export a watertight STL for printing.
+
+Not a one-shot terrain mesher — a scene editor. Objects stay discrete and editable; the
+printable solid is a *compile step* at export time.
+
+## Why it's built this way
+
+- **Detail comes from data, not software.** The whole system is a data-sourcing pipeline
+  with a studio UI on top. The data layer picks the best available source per region.
+- **Keep objects separate.** The scene is a graph of discrete meshes. They are only
+  boolean-unioned into one solid at export. That is what makes "pull a structure out and
+  refine it" possible.
+- **Runs locally, no keys required.** Elevation comes from keyless global terrain tiles
+  (AWS Terrain Tiles); buildings from OpenStreetMap. Optional high-res sources
+  (OpenTopography USGS 1 m lidar) plug in with an API key.
+
+## Architecture
+
+```
+frontend/   Vite + React + react-three-fiber studio, MapLibre region picker
+backend/    FastAPI: DEM resolver, OSM features, meshing, STL export
+```
+
+Pipeline: pick region -> fetch best-available DEM + OSM -> build scene graph ->
+edit / refine -> boolean-union + base -> export STL.
+
+## Data sources (best per region)
+
+| Region      | Source                                  | Resolution | Key |
+|-------------|-----------------------------------------|-----------|-----|
+| Global      | AWS Terrain Tiles (Terrarium)           | ~ tile zoom (blended 3DEP/SRTM) | no |
+| US high-res | OpenTopography USGS 3DEP 1 m            | 1 m       | yes |
+| Global DEM  | OpenTopography SRTM / Copernicus        | 30 m      | yes |
+| Buildings   | OpenStreetMap (Overpass API)            | footprints + heights | no |
+
+## Quickstart
+
+Backend:
+
+```bash
+cd backend
+uv sync
+uv run uvicorn mapr3d.main:app --reload --port 8000
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173.
+
+## Status
+
+Early build. See the pipeline stages in `backend/mapr3d/` and the studio in
+`frontend/src/`.
+
+## Roadmap
+
+- [x] Repo scaffold
+- [ ] DEM resolver (keyless terrain tiles + synthetic fallback)
+- [ ] Terrain -> watertight solid
+- [ ] Map region picker + 3D studio viewport
+- [ ] OSM buildings as selectable objects
+- [ ] Editing: hide / delete / height / re-mesh
+- [ ] Watertight union + STL export
+- [ ] High-res lidar channel (OpenTopography key)
+- [ ] Gaussian splat / Google 3D Tiles detail injectors (v2)

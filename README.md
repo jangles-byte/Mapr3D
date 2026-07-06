@@ -79,7 +79,12 @@ Early build. See the pipeline stages in `backend/mapr3d/` and the studio in
 - [x] OSM buildings as selectable objects
 - [x] Editing: hide / delete / height scale
 - [x] STL export (watertight, scaled, base + vertical exaggeration)
-- [ ] High-res lidar channel wired to the UI (OpenTopography key)
-- [ ] Boolean-union single-manifold export toggle in the UI
-- [ ] Terrain refine ops (flatten patch, re-mesh at higher res)
-- [ ] Gaussian splat / Google 3D Tiles detail injectors (v2)
+- [x] High-res lidar channel with graceful fallback (OpenTopography key)
+- [x] Boolean-union single-manifold export toggle
+- [x] Terrain detail (resolution) control
+- [x] Detailed basemaps (OSM streets + Esri satellite)
+- [x] Mesh-import injector — drop OBJ/STL/PLY/GLB meshes (3D Tiles /
+      photogrammetry / Gaussian-splat exports) onto the terrain, place and
+      scale them, export welded in
+- [ ] Direct Google 3D Tiles fetch by region (auto-import, no manual export)
+- [ ] Terrain refine ops (flatten a selected patch)

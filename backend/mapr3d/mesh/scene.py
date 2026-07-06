@@ -8,6 +8,8 @@ still produce a clean solid on export.
 
 from __future__ import annotations
 
+import io
+import math
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -38,11 +40,27 @@ class BuildingDef:
 
 
 @dataclass
+class ImportedDef:
+    """An external mesh (photogrammetry / 3D Tiles / splat) dropped into the scene.
+
+    Vertices are stored normalized: centered on XY, base at z=0, max horizontal
+    extent 1.0. The placement (position, uniform scale, z-rotation) lives in the
+    editable transform so the studio can move/scale/rotate it.
+    """
+    id: str
+    name: str
+    vertices: np.ndarray    # [N,3] normalized unit mesh
+    faces: np.ndarray       # [M,3]
+    transform: dict         # {tx, ty, tz, scale, rotZ}
+
+
+@dataclass
 class Scene:
     id: str
     bbox: list[float]
     dem: DemResult
     buildings: list[BuildingDef] = field(default_factory=list)
+    imported: list[ImportedDef] = field(default_factory=list)
     extent_m: float = 1.0
 
 
@@ -177,6 +195,16 @@ def export_stl(sid: str, included_ids: list[str], scale_mm: float,
         V, F = geom
         meshes.append(trimesh.Trimesh(vertices=V, faces=F, process=False))
 
+    for imp in scene.imported:
+        if not wanted(imp.id):
+            continue
+        tf = edits.get(imp.id, {}).get("transform", imp.transform)
+        V = _apply_transform(imp.vertices, tf)
+        V[:, 0] *= factor
+        V[:, 1] *= factor
+        V[:, 2] *= vfac
+        meshes.append(trimesh.Trimesh(vertices=V, faces=imp.faces, process=False))
+
     if not meshes:
         raise ValueError("no objects selected for export")
 
@@ -200,6 +228,70 @@ def export_stl(sid: str, included_ids: list[str], scale_mm: float,
     combined.merge_vertices()
     trimesh.repair.fix_normals(combined)
     return combined.export(file_type="stl")
+
+
+def _apply_transform(V: np.ndarray, tf: dict) -> np.ndarray:
+    """Scale (uniform) -> rotate about Z -> translate, in local meters."""
+    s = float(tf.get("scale", 1.0))
+    rz = float(tf.get("rotZ", 0.0))
+    c, si = math.cos(rz), math.sin(rz)
+    R = np.array([[c, -si, 0.0], [si, c, 0.0], [0.0, 0.0, 1.0]])
+    out = (V * s) @ R.T
+    out[:, 0] += float(tf.get("tx", 0.0))
+    out[:, 1] += float(tf.get("ty", 0.0))
+    out[:, 2] += float(tf.get("tz", 0.0))
+    return out
+
+
+def _load_trimesh(data: bytes, ext: str) -> trimesh.Trimesh:
+    loaded = trimesh.load(io.BytesIO(data), file_type=ext, process=True)
+    if isinstance(loaded, trimesh.Scene):
+        geoms = [g for g in loaded.geometry.values()
+                 if isinstance(g, trimesh.Trimesh)]
+        if not geoms:
+            raise ValueError("file contains no printable geometry")
+        loaded = trimesh.util.concatenate(geoms)
+    if not isinstance(loaded, trimesh.Trimesh) or len(loaded.faces) == 0:
+        raise ValueError("could not read a mesh from this file")
+    return loaded
+
+
+def import_mesh(sid: str, filename: str, data: bytes) -> dict:
+    """Load an uploaded mesh, normalize it, and add it to the scene."""
+    scene = get_scene(sid)
+    if scene is None:
+        raise KeyError("scene not found (rebuild the scene)")
+
+    ext = (filename.rsplit(".", 1)[-1] or "").lower()
+    if ext not in ("obj", "stl", "ply", "glb", "gltf", "off"):
+        raise ValueError(f"unsupported file type: .{ext}")
+
+    mesh = _load_trimesh(data, ext)
+
+    # Normalize: center on XY, base at z=0, max horizontal extent -> 1.0.
+    V = np.asarray(mesh.vertices, dtype=np.float64)
+    xmin, ymin, zmin = V.min(axis=0)
+    xmax, ymax, _ = V.max(axis=0)
+    V[:, 0] -= (xmin + xmax) / 2.0
+    V[:, 1] -= (ymin + ymax) / 2.0
+    V[:, 2] -= zmin
+    span = max(xmax - xmin, ymax - ymin, 1e-6)
+    V /= span
+
+    # Default placement: terrain center, ~30% of the plate, sitting on terrain.
+    cx = float((scene.dem.grid_x[0] + scene.dem.grid_x[-1]) / 2.0)
+    cy = float((scene.dem.grid_y[0] + scene.dem.grid_y[-1]) / 2.0)
+    tz = sample_grid(scene.dem.grid_x, scene.dem.grid_y, scene.dem.heights, cx, cy)
+    transform = {"tx": cx, "ty": cy, "tz": float(tz),
+                 "scale": round(0.3 * scene.extent_m, 2), "rotZ": 0.0}
+
+    oid = f"import/{uuid.uuid4().hex[:8]}"
+    name = filename.rsplit("/", 1)[-1]
+    F = np.asarray(mesh.faces, dtype=np.int64)
+    scene.imported.append(ImportedDef(oid, name, V, F, transform))
+
+    return _object_payload(oid, "imported", name, V, F,
+                           {"transform": transform, "triangles": int(len(F))})
 
 
 def _cache(scene: Scene) -> None:

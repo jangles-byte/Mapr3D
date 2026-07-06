@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
 
 from .. import __version__
 from ..mesh import scene as scene_mod
@@ -35,6 +35,22 @@ def build_scene(req: BuildRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(ex))
     except Exception as ex:  # noqa: BLE001 - surface a clean 500
         raise HTTPException(status_code=500, detail=f"scene build failed: {ex}")
+
+
+@router.post("/scene/import-mesh")
+async def import_mesh(sceneId: str = Form(...),
+                      file: UploadFile = File(...)) -> dict:
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty file")
+    try:
+        return scene_mod.import_mesh(sceneId, file.filename or "mesh", data)
+    except KeyError as ex:
+        raise HTTPException(status_code=404, detail=str(ex))
+    except ValueError as ex:
+        raise HTTPException(status_code=400, detail=str(ex))
+    except Exception as ex:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"import failed: {ex}")
 
 
 @router.post("/scene/export")

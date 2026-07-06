@@ -24,6 +24,14 @@ export interface BuildResponse {
   suggestedScaleMM: number;
 }
 
+export interface Transform {
+  tx: number;
+  ty: number;
+  tz: number;
+  scale: number;
+  rotZ: number;
+}
+
 export interface SceneObject {
   id: string;
   type: string;
@@ -33,6 +41,7 @@ export interface SceneObject {
   meta: Record<string, any>;
   visible: boolean;
   heightScale: number;
+  transform?: Transform;
 }
 
 export type BBox = [number, number, number, number]; // [w, s, e, n]

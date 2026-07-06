@@ -64,6 +64,32 @@ export default function SceneMesh({ obj, zMax }: { obj: SceneObject; zMax: numbe
   }, [obj.positions, obj.type]);
 
   if (!obj.visible) return null;
+
+  if (obj.type === "imported" && obj.transform) {
+    const t = obj.transform;
+    return (
+      <mesh
+        geometry={geometry}
+        position={[t.tx, t.ty, t.tz]}
+        scale={[t.scale, t.scale, t.scale]}
+        rotation={[0, 0, t.rotZ]}
+        onClick={(e) => {
+          e.stopPropagation();
+          select(obj.id);
+        }}
+      >
+        <meshStandardMaterial
+          color={selected ? "#f0997b" : "#c7a15f"}
+          emissive={selected ? "#d85a30" : "#000000"}
+          emissiveIntensity={selected ? 0.5 : 0}
+          roughness={0.7}
+          metalness={0.05}
+          flatShading
+        />
+      </mesh>
+    );
+  }
+
   const hs = obj.type === "building" ? obj.heightScale : 1;
 
   return (

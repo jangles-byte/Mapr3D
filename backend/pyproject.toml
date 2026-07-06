@@ -17,6 +17,7 @@ dependencies = [
     "scipy>=1.11",
     "pydantic>=2.6",
     "python-dotenv>=1.0",
+    "python-multipart>=0.0.9",
 ]
 
 [tool.uv]

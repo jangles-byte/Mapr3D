@@ -1,4 +1,4 @@
-import type { BBox, BuildResponse } from "../types";
+import type { BBox, BuildResponse, RawObject } from "../types";
 
 const API = "/api";
 
@@ -18,6 +18,15 @@ async function jsonOrThrow(res: Response) {
 
 export async function getConfig(): Promise<{ openTopographyKey: boolean }> {
   return jsonOrThrow(await fetch(`${API}/config`));
+}
+
+export async function importMesh(sceneId: string, file: File): Promise<RawObject> {
+  const fd = new FormData();
+  fd.append("sceneId", sceneId);
+  fd.append("file", file);
+  return jsonOrThrow(
+    await fetch(`${API}/scene/import-mesh`, { method: "POST", body: fd })
+  );
 }
 
 export async function buildScene(args: {

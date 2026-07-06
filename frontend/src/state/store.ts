@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { buildScene, exportScene, getConfig } from "../api/client";
-import type { BBox, Bounds, ExportParams, SceneObject } from "../types";
+import { buildScene, exportScene, getConfig, importMesh } from "../api/client";
+import type { BBox, Bounds, ExportParams, SceneObject, Transform } from "../types";
 
 type Status = "idle" | "loading" | "ready" | "error";
 
@@ -26,6 +26,8 @@ interface StudioState {
   toggleVisible: (id: string) => void;
   remove: (id: string) => void;
   setHeightScale: (id: string, v: number) => void;
+  importMeshFile: (file: File) => Promise<void>;
+  setTransform: (id: string, partial: Partial<Transform>) => void;
   exportStl: () => Promise<void>;
 }
 
@@ -121,6 +123,41 @@ export const useStudio = create<StudioState>((set, get) => ({
       ),
     })),
 
+  importMeshFile: async (file) => {
+    const { sceneId } = get();
+    if (!sceneId) {
+      set({ error: "Build a scene first, then import a mesh into it." });
+      return;
+    }
+    set({ error: null });
+    try {
+      const o = await importMesh(sceneId, file);
+      const obj: SceneObject = {
+        id: o.id,
+        type: o.type,
+        name: o.name,
+        positions: new Float32Array(o.positions),
+        indices: new Uint32Array(o.indices),
+        meta: o.meta,
+        visible: true,
+        heightScale: 1,
+        transform: o.meta.transform as Transform,
+      };
+      set((s) => ({ objects: [...s.objects, obj], selectedId: o.id }));
+    } catch (e: any) {
+      set({ error: e.message ?? String(e) });
+    }
+  },
+
+  setTransform: (id, partial) =>
+    set((s) => ({
+      objects: s.objects.map((o) =>
+        o.id === id && o.transform
+          ? { ...o, transform: { ...o.transform, ...partial } }
+          : o
+      ),
+    })),
+
   exportStl: async () => {
     const { sceneId, objects, params } = get();
     if (!sceneId) {
@@ -130,10 +167,13 @@ export const useStudio = create<StudioState>((set, get) => ({
     set({ exporting: true, error: null });
     try {
       const visible = objects.filter((o) => o.visible);
-      const edits: Record<string, { heightScale?: number }> = {};
+      const edits: Record<string, any> = {};
       for (const o of objects) {
         if (o.type === "building" && o.heightScale !== 1) {
           edits[o.id] = { heightScale: o.heightScale };
+        }
+        if (o.type === "imported" && o.transform) {
+          edits[o.id] = { transform: o.transform };
         }
       }
       const blob = await exportScene({

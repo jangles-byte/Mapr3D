@@ -44,4 +44,5 @@ export interface ExportParams {
   includeBuildings: boolean;
   demSource: "auto" | "opentopography" | "synthetic";
   union: boolean;
+  resolution: number; // terrain heightfield grid detail (max dimension)
 }

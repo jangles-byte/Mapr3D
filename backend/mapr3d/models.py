@@ -10,7 +10,7 @@ class BuildRequest(BaseModel):
     includeBuildings: bool = True
     demSource: str = "auto"  # auto | opentopography | synthetic
     maxBuildings: int = 1500
-    resolution: int = 220    # max heightfield grid dimension
+    resolution: int = Field(220, ge=32, le=600)  # max heightfield grid dimension
 
     @field_validator("bbox")
     @classmethod

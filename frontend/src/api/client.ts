@@ -24,6 +24,7 @@ export async function buildScene(args: {
   bbox: BBox;
   includeBuildings: boolean;
   demSource: string;
+  resolution: number;
 }): Promise<BuildResponse> {
   const res = await fetch(`${API}/scene/build`, {
     method: "POST",
@@ -32,6 +33,7 @@ export async function buildScene(args: {
       bbox: args.bbox,
       includeBuildings: args.includeBuildings,
       demSource: args.demSource,
+      resolution: args.resolution,
     }),
   });
   return jsonOrThrow(res);

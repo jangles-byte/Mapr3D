@@ -48,6 +48,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     includeBuildings: true,
     demSource: "auto",
     union: false,
+    resolution: 220,
   },
 
   loadConfig: async () => {
@@ -75,6 +76,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         bbox,
         includeBuildings: params.includeBuildings,
         demSource: params.demSource,
+        resolution: params.resolution,
       });
       const objects: SceneObject[] = res.objects.map((o) => ({
         id: o.id,

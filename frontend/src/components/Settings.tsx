@@ -55,6 +55,24 @@ export default function Settings() {
         </div>
       )}
 
+      <div className="sub-h" style={{ marginTop: 16 }}>
+        <span>Terrain &amp; data</span>
+        <span className="spacer" />
+        <span className="muted small">Build to apply</span>
+      </div>
+
+      <label className="field">
+        <span>Terrain detail · {p.resolution} px grid</span>
+        <input
+          type="range"
+          min={80}
+          max={480}
+          step={20}
+          value={p.resolution}
+          onChange={(e) => setParam("resolution", +e.target.value)}
+        />
+      </label>
+
       <label className="check">
         <input
           type="checkbox"

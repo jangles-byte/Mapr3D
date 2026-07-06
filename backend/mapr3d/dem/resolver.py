@@ -32,22 +32,7 @@ def resolve_dem(w: float, s: float, e: float, n: float,
     lon0, lat0 = (w + e) / 2.0, (s + n) / 2.0
     proj = LocalProjector(lon0, lat0)
 
-    source = "synthetic"
-    zoom = 0
-    H: np.ndarray
-
-    try:
-        if prefer == "opentopography":
-            H, zoom = sources.fetch_opentopography(w, s, e, n)
-            source = "OpenTopography (USGS 1 m lidar)"
-        elif prefer == "synthetic":
-            raise RuntimeError("synthetic requested")
-        else:
-            H, zoom = sources.fetch_terrain_tiles(w, s, e, n, max_dim=max_dim)
-            source = "AWS Terrain Tiles (Terrarium)"
-    except Exception as ex:  # network / key / parse failure -> never blocks
-        H, zoom = sources.synthetic_terrain(w, s, e, n, max_dim=min(max_dim, 200))
-        source = f"synthetic (fallback: {type(ex).__name__})"
+    H, zoom, source = _resolve_heights(w, s, e, n, prefer, max_dim)
 
     H = np.flipud(np.ascontiguousarray(H))  # row 0 -> south
     ny, nx = H.shape
@@ -66,15 +51,55 @@ def resolve_dem(w: float, s: float, e: float, n: float,
     return DemResult(H, grid_x, grid_y, min_elev, source, quality, zoom, proj)
 
 
+def _resolve_heights(w: float, s: float, e: float, n: float,
+                     prefer: str, max_dim: int) -> tuple[np.ndarray, int, str]:
+    """Try sources in priority order, always falling back to something usable.
+
+    opentopography: USGS 1 m lidar -> Copernicus 30 m -> keyless tiles -> synthetic.
+    auto:           keyless tiles -> synthetic.
+    """
+    if prefer == "synthetic":
+        H, z = sources.synthetic_terrain(w, s, e, n, max_dim=min(max_dim, 200))
+        return H, z, "synthetic (requested)"
+
+    if prefer == "opentopography":
+        for demtype, label, md in (
+            ("USGS1m", "OpenTopography USGS 3DEP 1 m lidar", max(max_dim, 400)),
+            ("COP30", "OpenTopography Copernicus 30 m", max_dim),
+        ):
+            try:
+                H, z = sources.fetch_opentopography(w, s, e, n, demtype=demtype,
+                                                    max_dim=md)
+                return H, z, label
+            except Exception:
+                continue  # no key, no coverage, or network -> try the next
+
+    try:
+        H, z = sources.fetch_terrain_tiles(w, s, e, n, max_dim=max_dim)
+        note = "AWS Terrain Tiles (Terrarium)"
+        if prefer == "opentopography":
+            note += " — lidar unavailable (no key or no coverage)"
+        return H, z, note
+    except Exception as ex:
+        H, z = sources.synthetic_terrain(w, s, e, n, max_dim=min(max_dim, 200))
+        return H, z, f"synthetic (fallback: {type(ex).__name__})"
+
+
 def _quality_label(lat: float, zoom: int, source: str) -> str:
-    if zoom <= 0:
-        return "no real elevation data" if source.startswith("synthetic") \
-            else "high (lidar)"
-    res = ground_resolution(lat, zoom)
-    if res <= 5:
-        tier = "high"
-    elif res <= 20:
-        tier = "medium"
-    else:
-        tier = "low"
-    return f"{tier} (~{res:.0f} m/pixel, zoom {zoom})"
+    s = source.lower()
+
+    def zoom_tier() -> str:
+        res = ground_resolution(lat, zoom)
+        tier = "high" if res <= 5 else "medium" if res <= 20 else "low"
+        return f"{tier} (~{res:.0f} m/pixel, zoom {zoom})"
+
+    if "synthetic" in s:
+        return "no real elevation data"
+    # Check the actual data source before the "lidar unavailable" note text.
+    if "terrarium" in s or "terrain tiles" in s:
+        return zoom_tier() if zoom > 0 else "medium (terrain tiles)"
+    if "3dep" in s or "1 m lidar" in s:
+        return "high (~1 m lidar)"
+    if "30 m" in s:
+        return "low (~30 m)"
+    return zoom_tier() if zoom > 0 else "unknown"

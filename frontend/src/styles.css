@@ -267,6 +267,10 @@ body {
   padding: 6px 8px;
   margin: 4px 0 8px;
 }
+.readout.warn {
+  color: #f0c07a;
+  border: 1px solid #5a4a2a;
+}
 
 .kv {
   display: flex;

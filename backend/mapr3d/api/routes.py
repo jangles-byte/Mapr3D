@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, HTTPException, Response
 
 from .. import __version__
@@ -14,6 +16,12 @@ router = APIRouter(prefix="/api")
 @router.get("/health")
 def health() -> dict:
     return {"status": "ok", "version": __version__}
+
+
+@router.get("/config")
+def config() -> dict:
+    """Report backend capabilities so the UI can adapt (e.g. lidar availability)."""
+    return {"openTopographyKey": bool(os.environ.get("OPENTOPOGRAPHY_API_KEY"))}
 
 
 @router.post("/scene/build")

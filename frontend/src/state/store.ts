@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { buildScene, exportScene } from "../api/client";
+import { buildScene, exportScene, getConfig } from "../api/client";
 import type { BBox, Bounds, ExportParams, SceneObject } from "../types";
 
 type Status = "idle" | "loading" | "ready" | "error";
@@ -15,8 +15,10 @@ interface StudioState {
   status: Status;
   error: string | null;
   exporting: boolean;
+  hasLidarKey: boolean;
   params: ExportParams;
 
+  loadConfig: () => Promise<void>;
   setBbox: (b: BBox) => void;
   setParam: <K extends keyof ExportParams>(k: K, v: ExportParams[K]) => void;
   build: () => Promise<void>;
@@ -38,12 +40,22 @@ export const useStudio = create<StudioState>((set, get) => ({
   status: "idle",
   error: null,
   exporting: false,
+  hasLidarKey: false,
   params: {
     scaleMM: 180,
     baseThicknessMM: 3,
     zExaggeration: 1.5,
     includeBuildings: true,
     demSource: "auto",
+  },
+
+  loadConfig: async () => {
+    try {
+      const c = await getConfig();
+      set({ hasLidarKey: c.openTopographyKey });
+    } catch {
+      /* backend not up yet; ignore */
+    }
   },
 
   setBbox: (b) => set({ bbox: b }),

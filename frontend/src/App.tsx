@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import MapPanel from "./components/MapPanel";
 import StudioViewport from "./components/StudioViewport";
 import ObjectPanel from "./components/ObjectPanel";
@@ -14,6 +15,11 @@ export default function App() {
   const error = useStudio((s) => s.error);
   const buildingCount = useStudio((s) => s.buildingCount);
   const hasScene = useStudio((s) => s.objects.length > 0);
+  const loadConfig = useStudio((s) => s.loadConfig);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   return (
     <div className="app">

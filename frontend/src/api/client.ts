@@ -16,6 +16,10 @@ async function jsonOrThrow(res: Response) {
   return res.json();
 }
 
+export async function getConfig(): Promise<{ openTopographyKey: boolean }> {
+  return jsonOrThrow(await fetch(`${API}/config`));
+}
+
 export async function buildScene(args: {
   bbox: BBox;
   includeBuildings: boolean;

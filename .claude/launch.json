@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "backend",
-      "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "--project", "backend", "uvicorn", "mapr3d.main:app", "--port", "8000"],
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-c", "import os; os.chdir('/Users/jangles/Desktop/Mapr3D/backend'); os.execvp('uv', ['uv', 'run', 'uvicorn', 'mapr3d.main:app', '--port', '8000', '--reload'])"],
       "port": 8000
     },
     {

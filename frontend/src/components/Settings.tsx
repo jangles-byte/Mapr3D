@@ -4,6 +4,7 @@ export default function Settings() {
   const p = useStudio((s) => s.params);
   const setParam = useStudio((s) => s.setParam);
   const bounds = useStudio((s) => s.bounds);
+  const hasLidarKey = useStudio((s) => s.hasLidarKey);
 
   const mPerMm = bounds ? bounds.extentM / p.scaleMM : null;
 
@@ -74,6 +75,14 @@ export default function Settings() {
           <option value="synthetic">Synthetic — offline demo</option>
         </select>
       </label>
+
+      {p.demSource === "opentopography" && (
+        <div className={hasLidarKey ? "readout" : "readout warn"}>
+          {hasLidarKey
+            ? "US regions get 1 m 3DEP lidar; elsewhere Copernicus 30 m."
+            : "No OpenTopography key set — add OPENTOPOGRAPHY_API_KEY to backend/.env for 1 m lidar. Falls back to terrain tiles until then."}
+        </div>
+      )}
     </div>
   );
 }

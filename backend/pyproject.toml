@@ -15,6 +15,7 @@ dependencies = [
     "networkx>=3.2",
     "manifold3d>=2.4",
     "scipy>=1.11",
+    "fast-simplification>=0.1.7",
     "pydantic>=2.6",
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",

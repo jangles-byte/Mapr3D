@@ -54,6 +54,12 @@ export default function Inspector() {
             <span>Triangles</span>
             <b>{(obj.meta.triangles ?? 0).toLocaleString()}</b>
           </div>
+          {obj.meta.decimatedFrom && (
+            <div className="readout">
+              Simplified from {obj.meta.decimatedFrom.toLocaleString()} triangles
+              to keep the studio responsive.
+            </div>
+          )}
           <label className="field">
             <span>Scale · {Math.round(obj.transform.scale)} m</span>
             <input

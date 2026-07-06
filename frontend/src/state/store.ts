@@ -14,7 +14,9 @@ interface StudioState {
   selectedId: string | null;
   status: Status;
   error: string | null;
+  notes: string[];
   exporting: boolean;
+  importing: boolean;
   hasLidarKey: boolean;
   params: ExportParams;
 
@@ -41,7 +43,9 @@ export const useStudio = create<StudioState>((set, get) => ({
   selectedId: null,
   status: "idle",
   error: null,
+  notes: [],
   exporting: false,
+  importing: false,
   hasLidarKey: false,
   params: {
     scaleMM: 180,
@@ -72,7 +76,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       set({ error: "Draw a region on the map first." });
       return;
     }
-    set({ status: "loading", error: null, selectedId: null });
+    set({ status: "loading", error: null, notes: [], selectedId: null });
     try {
       const res = await buildScene({
         bbox,
@@ -96,6 +100,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         bounds: res.bounds,
         dem: res.dem,
         buildingCount: res.buildingCount,
+        notes: res.notes ?? [],
         status: "ready",
         params: { ...params, scaleMM: res.suggestedScaleMM || params.scaleMM },
       });
@@ -129,7 +134,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       set({ error: "Build a scene first, then import a mesh into it." });
       return;
     }
-    set({ error: null });
+    set({ error: null, importing: true });
     try {
       const o = await importMesh(sceneId, file);
       const obj: SceneObject = {
@@ -146,6 +151,8 @@ export const useStudio = create<StudioState>((set, get) => ({
       set((s) => ({ objects: [...s.objects, obj], selectedId: o.id }));
     } catch (e: any) {
       set({ error: e.message ?? String(e) });
+    } finally {
+      set({ importing: false });
     }
   },
 

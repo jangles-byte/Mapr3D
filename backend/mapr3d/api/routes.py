@@ -43,6 +43,8 @@ async def import_mesh(sceneId: str = Form(...),
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="empty file")
+    if len(data) > 150 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="file too large (max 150 MB)")
     try:
         return scene_mod.import_mesh(sceneId, file.filename or "mesh", data)
     except KeyError as ex:

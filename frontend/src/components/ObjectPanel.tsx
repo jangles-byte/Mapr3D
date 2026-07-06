@@ -10,6 +10,7 @@ export default function ObjectPanel() {
   const toggle = useStudio((s) => s.toggleVisible);
   const remove = useStudio((s) => s.remove);
   const importMeshFile = useStudio((s) => s.importMeshFile);
+  const importing = useStudio((s) => s.importing);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const terrain = objects.filter((o) => o.type === "terrain");
@@ -96,7 +97,7 @@ export default function ObjectPanel() {
       />
       <button
         className="btn small import-btn"
-        disabled={!sceneId}
+        disabled={!sceneId || importing}
         title={
           sceneId
             ? "Add a high-detail mesh (3D Tiles, photogrammetry, splat)"
@@ -104,7 +105,7 @@ export default function ObjectPanel() {
         }
         onClick={() => fileRef.current?.click()}
       >
-        + Import mesh…
+        {importing ? "Importing…" : "+ Import mesh…"}
       </button>
     </div>
   );

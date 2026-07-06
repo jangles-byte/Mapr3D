@@ -15,6 +15,8 @@ export default function App() {
   const error = useStudio((s) => s.error);
   const buildingCount = useStudio((s) => s.buildingCount);
   const hasScene = useStudio((s) => s.objects.length > 0);
+  const bbox = useStudio((s) => s.bbox);
+  const notes = useStudio((s) => s.notes);
   const loadConfig = useStudio((s) => s.loadConfig);
 
   useEffect(() => {
@@ -40,7 +42,8 @@ export default function App() {
           <button
             className="btn btn-accent"
             onClick={build}
-            disabled={status === "loading"}
+            disabled={status === "loading" || !bbox}
+            title={bbox ? "" : "Select a region on the map first"}
           >
             {status === "loading" ? "Building…" : "Build 3D"}
           </button>
@@ -53,6 +56,16 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {notes.length > 0 && (
+        <div className="notes-bar">
+          {notes.map((n, i) => (
+            <span key={i} className="note">
+              {n}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="body">
         <aside className="left">

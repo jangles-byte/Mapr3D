@@ -86,5 +86,11 @@ Early build. See the pipeline stages in `backend/mapr3d/` and the studio in
 - [x] Mesh-import injector — drop OBJ/STL/PLY/GLB meshes (3D Tiles /
       photogrammetry / Gaussian-splat exports) onto the terrain, place and
       scale them, export welded in
-- [ ] Direct Google 3D Tiles fetch by region (auto-import, no manual export)
+- [x] Import hardening — mesh repair + auto-decimation, size guard, build
+      notes surfaced in the UI
 - [ ] Terrain refine ops (flatten a selected patch)
+- [ ] Preserve imported meshes across a rebuild
+
+Deliberately **not** doing direct Google Photorealistic 3D Tiles fetch: it
+requires a billed, keyed Google Map Tiles API. Mapr3D stays keyless — bring a
+3D Tiles / splat mesh in through the mesh-import injector instead.

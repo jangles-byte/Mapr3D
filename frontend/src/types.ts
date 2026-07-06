@@ -22,6 +22,7 @@ export interface BuildResponse {
   bounds: Bounds;
   buildingCount: number;
   suggestedScaleMM: number;
+  notes: string[];
 }
 
 export interface Transform {

@@ -101,11 +101,18 @@ def build_scene(bbox: list[float], include_buildings: bool = True,
          "minElev": dem.min_elev, "zRange": [0.0, float(dem.heights.max())]},
     ))
 
+    notes: list[str] = []
+    if "synthetic" in dem.source:
+        notes.append("No real elevation data here — using synthetic terrain.")
+
     if include_buildings:
         try:
             raw = osm.fetch_buildings(w, s, e, n)
         except Exception:
             raw = []
+            notes.append("Buildings unavailable (OpenStreetMap timeout) — try Build again.")
+        if len(raw) > max_buildings:
+            notes.append(f"Showing first {max_buildings} of {len(raw)} buildings.")
         raw = raw[:max_buildings]
         terr_rect = shapely_box(float(dem.grid_x[0]), float(dem.grid_y[0]),
                                 float(dem.grid_x[-1]), float(dem.grid_y[-1]))
@@ -153,6 +160,7 @@ def build_scene(bbox: list[float], include_buildings: bool = True,
         },
         "buildingCount": len(scene.buildings),
         "suggestedScaleMM": 180.0,
+        "notes": notes,
     }
 
 
@@ -243,6 +251,9 @@ def _apply_transform(V: np.ndarray, tf: dict) -> np.ndarray:
     return out
 
 
+IMPORT_TRIANGLE_BUDGET = 250_000  # keep preview + export responsive
+
+
 def _load_trimesh(data: bytes, ext: str) -> trimesh.Trimesh:
     loaded = trimesh.load(io.BytesIO(data), file_type=ext, process=True)
     if isinstance(loaded, trimesh.Scene):
@@ -256,6 +267,32 @@ def _load_trimesh(data: bytes, ext: str) -> trimesh.Trimesh:
     return loaded
 
 
+def _clean_mesh(mesh: trimesh.Trimesh) -> tuple[trimesh.Trimesh, int, int]:
+    """Repair a possibly-messy imported mesh and cap its triangle count.
+
+    Photogrammetry / splat meshes are often non-watertight and dense; merge
+    duplicate vertices, drop degenerate faces, and decimate above the budget.
+    Returns (mesh, original_triangles, final_triangles).
+    """
+    original = int(len(mesh.faces))
+    mesh.merge_vertices()
+    mesh.update_faces(mesh.nondegenerate_faces())
+    mesh.update_faces(mesh.unique_faces())
+    mesh.remove_unreferenced_vertices()
+
+    if len(mesh.faces) > IMPORT_TRIANGLE_BUDGET:
+        try:
+            mesh = mesh.simplify_quadric_decimation(
+                face_count=IMPORT_TRIANGLE_BUDGET
+            )
+        except Exception:
+            pass  # keep full-res if the decimator is unavailable
+
+    if len(mesh.faces) == 0:
+        raise ValueError("mesh had no valid faces after cleanup")
+    return mesh, original, int(len(mesh.faces))
+
+
 def import_mesh(sid: str, filename: str, data: bytes) -> dict:
     """Load an uploaded mesh, normalize it, and add it to the scene."""
     scene = get_scene(sid)
@@ -266,7 +303,7 @@ def import_mesh(sid: str, filename: str, data: bytes) -> dict:
     if ext not in ("obj", "stl", "ply", "glb", "gltf", "off"):
         raise ValueError(f"unsupported file type: .{ext}")
 
-    mesh = _load_trimesh(data, ext)
+    mesh, tris_in, tris_out = _clean_mesh(_load_trimesh(data, ext))
 
     # Normalize: center on XY, base at z=0, max horizontal extent -> 1.0.
     V = np.asarray(mesh.vertices, dtype=np.float64)
@@ -290,8 +327,10 @@ def import_mesh(sid: str, filename: str, data: bytes) -> dict:
     F = np.asarray(mesh.faces, dtype=np.int64)
     scene.imported.append(ImportedDef(oid, name, V, F, transform))
 
-    return _object_payload(oid, "imported", name, V, F,
-                           {"transform": transform, "triangles": int(len(F))})
+    meta = {"transform": transform, "triangles": tris_out}
+    if tris_out < tris_in:
+        meta["decimatedFrom"] = tris_in
+    return _object_payload(oid, "imported", name, V, F, meta)
 
 
 def _cache(scene: Scene) -> None:

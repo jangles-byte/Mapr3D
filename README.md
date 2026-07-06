@@ -65,11 +65,13 @@ Early build. See the pipeline stages in `backend/mapr3d/` and the studio in
 ## Roadmap
 
 - [x] Repo scaffold
-- [ ] DEM resolver (keyless terrain tiles + synthetic fallback)
-- [ ] Terrain -> watertight solid
-- [ ] Map region picker + 3D studio viewport
-- [ ] OSM buildings as selectable objects
-- [ ] Editing: hide / delete / height / re-mesh
-- [ ] Watertight union + STL export
-- [ ] High-res lidar channel (OpenTopography key)
+- [x] DEM resolver (keyless terrain tiles + synthetic fallback)
+- [x] Terrain -> watertight solid
+- [x] Map region picker + 3D studio viewport
+- [x] OSM buildings as selectable objects
+- [x] Editing: hide / delete / height scale
+- [x] STL export (watertight, scaled, base + vertical exaggeration)
+- [ ] High-res lidar channel wired to the UI (OpenTopography key)
+- [ ] Boolean-union single-manifold export toggle in the UI
+- [ ] Terrain refine ops (flatten patch, re-mesh at higher res)
 - [ ] Gaussian splat / Google 3D Tiles detail injectors (v2)

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--project", "backend", "uvicorn", "mapr3d.main:app", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-c", "import os; os.chdir('/Users/jangles/Desktop/Mapr3D/frontend'); os.execv('/Users/jangles/Desktop/Mapr3D/frontend/node_modules/.bin/vite', ['vite', '--host', '127.0.0.1'])"],
+      "port": 5173
+    }
+  ]
+}

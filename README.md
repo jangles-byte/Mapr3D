@@ -39,7 +39,10 @@ edit / refine -> boolean-union + base -> export STL.
 
 ## Quickstart
 
-One command — installs dependencies on first run and starts both servers:
+Easiest on macOS: **double-click `Mapr3D.command`** in Finder. It opens Terminal,
+installs dependencies on first run, and starts both servers.
+
+Or from a terminal:
 
 ```bash
 ./run.sh

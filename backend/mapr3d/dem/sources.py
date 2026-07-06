@@ -19,7 +19,56 @@ from .geo import TILE, lonlat_to_pixel, pick_zoom
 
 TERRARIUM_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 OPENTOPO_URL = "https://portal.opentopography.org/API/globaldem"
+USGS_3DEP_URL = (
+    "https://elevation.nationalmap.gov/arcgis/rest/services/"
+    "3DEPElevation/ImageServer/exportImage"
+)
 UA = {"User-Agent": "Mapr3D/0.1 (local 3D studio)"}
+
+
+def in_usa(w: float, s: float, e: float, n: float) -> bool:
+    """Rough bounds for USGS 3DEP coverage (CONUS + AK + HI + territories)."""
+    cx, cy = (w + e) / 2.0, (s + n) / 2.0
+    return -170.0 <= cx <= -64.0 and 15.0 <= cy <= 72.0
+
+
+def fetch_usgs_3dep(w: float, s: float, e: float, n: float,
+                    max_dim: int = 400, timeout: float = 40.0
+                    ) -> tuple[np.ndarray, int]:
+    """Keyless USGS 3DEP bare-earth elevation (down to 1 m in the US).
+
+    Uses the National Map ImageServer, which returns a float32 GeoTIFF for the
+    bbox. Rows are north -> south. Raises if the area has no 3DEP coverage.
+    """
+    import tifffile  # local import: only needed for this source
+
+    lat0 = (s + n) / 2.0
+    aspect = ((e - w) * math.cos(math.radians(lat0))) / max(n - s, 1e-9)
+    if aspect >= 1.0:
+        width, height = max_dim, max(2, int(round(max_dim / aspect)))
+    else:
+        width, height = max(2, int(round(max_dim * aspect))), max_dim
+
+    params = {
+        "bbox": f"{w},{s},{e},{n}", "bboxSR": 4326, "imageSR": 4326,
+        "size": f"{width},{height}", "format": "tiff", "pixelType": "F32",
+        "interpolation": "RSP_BilinearInterpolation", "f": "image",
+    }
+    with httpx.Client(timeout=timeout, headers=UA) as client:
+        r = client.get(USGS_3DEP_URL, params=params)
+        r.raise_for_status()
+        if "image" not in r.headers.get("content-type", ""):
+            raise ValueError("3DEP returned no image (out of coverage)")
+        arr = np.asarray(tifffile.imread(io.BytesIO(r.content)), dtype=np.float64)
+
+    if arr.ndim != 2:
+        arr = arr.reshape(height, width)
+    arr = np.where(arr < -1e5, np.nan, arr)  # NoData sentinel
+    if np.isnan(arr).mean() > 0.6:
+        raise ValueError("3DEP has no coverage for this area")
+    if np.isnan(arr).any():
+        arr = np.where(np.isnan(arr), np.nanmin(arr), arr)
+    return arr, 0  # already at requested grid; row 0 = north
 
 
 def _decode_terrarium(img: Image.Image) -> np.ndarray:

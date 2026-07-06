@@ -55,8 +55,8 @@ def _resolve_heights(w: float, s: float, e: float, n: float,
                      prefer: str, max_dim: int) -> tuple[np.ndarray, int, str]:
     """Try sources in priority order, always falling back to something usable.
 
-    opentopography: USGS 1 m lidar -> Copernicus 30 m -> keyless tiles -> synthetic.
-    auto:           keyless tiles -> synthetic.
+    opentopography: USGS 1 m lidar -> Copernicus 30 m -> keyless chain.
+    auto/keyless:   USGS 3DEP (US, no key) -> terrain tiles (global) -> synthetic.
     """
     if prefer == "synthetic":
         H, z = sources.synthetic_terrain(w, s, e, n, max_dim=min(max_dim, 200))
@@ -73,6 +73,14 @@ def _resolve_heights(w: float, s: float, e: float, n: float,
                 return H, z, label
             except Exception:
                 continue  # no key, no coverage, or network -> try the next
+
+    # Keyless high-res: USGS 3DEP bare-earth (1 m in the US), no key needed.
+    if sources.in_usa(w, s, e, n):
+        try:
+            H, z = sources.fetch_usgs_3dep(w, s, e, n, max_dim=max(max_dim, 300))
+            return H, z, "USGS 3DEP bare-earth (keyless)"
+        except Exception:
+            pass  # no coverage / network -> fall through to global tiles
 
     try:
         H, z = sources.fetch_terrain_tiles(w, s, e, n, max_dim=max_dim)
@@ -99,7 +107,7 @@ def _quality_label(lat: float, zoom: int, source: str) -> str:
     if "terrarium" in s or "terrain tiles" in s:
         return zoom_tier() if zoom > 0 else "medium (terrain tiles)"
     if "3dep" in s or "1 m lidar" in s:
-        return "high (~1 m lidar)"
+        return "high (USGS 3DEP lidar)"
     if "30 m" in s:
         return "low (~30 m)"
     return zoom_tier() if zoom > 0 else "unknown"

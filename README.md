@@ -39,23 +39,28 @@ edit / refine -> boolean-union + base -> export STL.
 
 ## Quickstart
 
-Backend:
+One command — installs dependencies on first run and starts both servers:
 
 ```bash
-cd backend
-uv sync
-uv run uvicorn mapr3d.main:app --reload --port 8000
+./run.sh
 ```
 
-Frontend:
+Then open http://localhost:5173. Press Ctrl+C to stop.
+
+Prerequisites: [uv](https://docs.astral.sh/uv/) and Node.js. Ports are
+configurable via `MAPR3D_BACKEND_PORT` / `MAPR3D_FRONTEND_PORT`.
+
+<details>
+<summary>Run the servers manually instead</summary>
 
 ```bash
-cd frontend
-npm install
-npm run dev
+# backend
+cd backend && uv sync && uv run uvicorn mapr3d.main:app --reload --port 8000
+# frontend (separate terminal)
+cd frontend && npm install && npm run dev
 ```
 
-Open http://localhost:5173.
+</details>
 
 ## Status
 

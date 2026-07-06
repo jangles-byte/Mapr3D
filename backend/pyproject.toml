@@ -1,0 +1,33 @@
+[project]
+name = "mapr3d"
+version = "0.1.0"
+description = "Local map-to-STL 3D studio backend"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "httpx>=0.27",
+    "numpy>=1.26",
+    "pillow>=10.2",
+    "shapely>=2.0",
+    "trimesh>=4.4",
+    "mapbox-earcut>=1.0",
+    "networkx>=3.2",
+    "pydantic>=2.6",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+# Optional boolean-union backend for a single manifold export.
+# Safe to skip; export falls back to concatenated solids.
+union = ["manifold3d>=2.4"]
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mapr3d"]

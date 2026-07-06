@@ -7,6 +7,8 @@ prisms are closed manifolds (for printing).
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import shapely.geometry as sg
 import trimesh
@@ -97,3 +99,103 @@ def building_prism(poly: sg.Polygon, base_z: float, height: float
     mesh.apply_translation([0.0, 0.0, base_z])
     return np.asarray(mesh.vertices, dtype=np.float64), \
         np.asarray(mesh.faces, dtype=np.int64)
+
+
+_FLAT = {"", "flat", "none"}
+_GABLE = {"gabled", "gambrel", "saltbox", "half-hipped"}
+_HIP = {"hipped", "mansard", "round"}
+_PYRAMID = {"pyramidal", "dome", "cone", "onion"}
+
+
+def _obb(poly: sg.Polygon) -> tuple[np.ndarray, float, float]:
+    """Oriented bounding box corners with the long edge as C0->C1."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # degenerate footprints -> handled below
+        rect = poly.minimum_rotated_rectangle
+    pts = np.asarray(rect.exterior.coords)
+    if len(pts) < 4:  # collinear / degenerate
+        return np.zeros((4, 2)), 0.0, 0.0
+    pts = pts[:4]
+    e01 = float(np.linalg.norm(pts[1] - pts[0]))
+    e12 = float(np.linalg.norm(pts[2] - pts[1]))
+    if e01 >= e12:
+        return pts, e01, e12
+    return np.roll(pts, -1, axis=0), e12, e01  # rotate so C0->C1 is long
+
+
+def default_roof_height(poly: sg.Polygon) -> float:
+    """A sensible roof height (m) when the tags don't give one."""
+    _, _, short_len = _obb(poly)
+    return float(min(0.35 * short_len, 4.0))
+
+
+def _roof_faces(shape: str, long_len: float, short_len: float) -> np.ndarray:
+    """Roof faces referencing top-ring verts 4-7 and apex/ridge verts 8(-9)."""
+    if shape in _PYRAMID:
+        return np.array([[4, 5, 8], [5, 6, 8], [6, 7, 8], [7, 4, 8]],
+                        dtype=np.int64)
+    # gabled / hipped: ridge verts 8 (over T0-T3 mid) and 9 (over T1-T2 mid)
+    return np.array([
+        [4, 5, 9], [4, 9, 8],   # slope over T0-T1
+        [7, 6, 9], [7, 9, 8],   # slope over T3-T2
+        [4, 7, 8],              # end / hip A
+        [5, 6, 9],              # end / hip B
+    ], dtype=np.int64)
+
+
+def _shaped_building(C: np.ndarray, base_z: float, wall_h: float,
+                     roof_h: float, shape: str, long_len: float,
+                     short_len: float) -> tuple[np.ndarray, np.ndarray]:
+    """One watertight solid: OBB floor + walls + shaped roof (no inner caps)."""
+    z_top = base_z + wall_h
+    zr = z_top + roof_h
+    B = [[C[i][0], C[i][1], base_z] for i in range(4)]      # 0-3 base
+    T = [[C[i][0], C[i][1], z_top] for i in range(4)]       # 4-7 eaves
+    V = B + T
+    if shape in _PYRAMID:
+        apex = C.mean(axis=0)
+        V.append([apex[0], apex[1], zr])                    # 8
+    else:
+        long_dir = (C[1] - C[0]) / (np.linalg.norm(C[1] - C[0]) + 1e-9)
+        inset = min(0.5 * short_len, 0.45 * long_len) if shape in _HIP else 0.0
+        ra = (C[0] + C[3]) / 2.0 + long_dir * inset
+        rb = (C[1] + C[2]) / 2.0 - long_dir * inset
+        V.append([ra[0], ra[1], zr])                        # 8
+        V.append([rb[0], rb[1], zr])                        # 9
+
+    faces = [[0, 2, 1], [0, 3, 2]]                          # floor (downward)
+    for i in range(4):                                       # walls
+        a, b = i, (i + 1) % 4
+        faces += [[a, b, b + 4], [a, b + 4, a + 4]]
+    F = np.vstack([np.array(faces, dtype=np.int64),
+                   _roof_faces(shape, long_len, short_len)])
+    return np.asarray(V, dtype=np.float64), F
+
+
+def building_mesh(poly: sg.Polygon, base_z: float, height: float,
+                  roof_shape: str = "", roof_h: float | None = None
+                  ) -> tuple[np.ndarray, np.ndarray] | None:
+    """Extruded walls plus a shaped roof (Simple 3D Buildings subset).
+
+    Shaped roofs are built as one watertight solid over the footprint's oriented
+    bounding box, so they only apply when the footprint is nearly rectangular
+    (where a gable/hip actually makes sense). Everything else stays a flat prism
+    over the true footprint.
+    """
+    shape = (roof_shape or "").lower().strip()
+    if shape not in (_GABLE | _HIP | _PYRAMID):
+        return building_prism(poly, base_z, height)
+
+    C, long_len, short_len = _obb(poly)
+    obb_area = long_len * short_len
+    if obb_area <= 0 or poly.area / obb_area < 0.85:
+        return building_prism(poly, base_z, height)  # too irregular for a ridge
+
+    if roof_h is None:
+        roof_h = min(0.35 * short_len, 4.0)
+    roof_h = max(0.0, min(roof_h, height * 0.85))
+    if roof_h < 0.3:
+        return building_prism(poly, base_z, height)
+
+    return _shaped_building(C, base_z, height - roof_h, roof_h, shape,
+                            long_len, short_len)

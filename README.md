@@ -32,10 +32,15 @@ edit / refine -> boolean-union + base -> export STL.
 
 | Region      | Source                                  | Resolution | Key |
 |-------------|-----------------------------------------|-----------|-----|
+| US high-res | USGS 3DEP (National Map ImageServer)    | 1 m bare-earth | **no** |
 | Global      | AWS Terrain Tiles (Terrarium)           | ~ tile zoom (blended 3DEP/SRTM) | no |
 | US high-res | OpenTopography USGS 3DEP 1 m            | 1 m       | yes |
 | Global DEM  | OpenTopography SRTM / Copernicus        | 30 m      | yes |
-| Buildings   | OpenStreetMap (Overpass API)            | footprints + heights | no |
+| Buildings   | OpenStreetMap (Overpass, mirrored)      | footprints + heights + roof shapes | no |
+
+The `auto` source tries keyless USGS 3DEP first in the US (true 1 m), then
+global terrain tiles. Buildings use OSM Simple 3D Buildings tags (`roof:shape`,
+`roof:height`) to build real gabled/hipped/pyramidal roofs, not flat boxes.
 
 ## Quickstart
 

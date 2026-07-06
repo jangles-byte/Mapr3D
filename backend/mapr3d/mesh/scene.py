@@ -36,6 +36,8 @@ class BuildingDef:
     poly: object            # shapely Polygon in local meters
     terr_z: float           # terrain top under the footprint (relative meters)
     height: float           # visual height in meters
+    roof_shape: str         # "", "gabled", "hipped", "pyramidal", ...
+    roof_h: float           # roof height in meters (0 = flat)
     tags: dict
 
 
@@ -132,18 +134,24 @@ def build_scene(bbox: list[float], include_buildings: bool = True,
             cx, cy = poly.centroid.x, poly.centroid.y
             terr_z = sample_grid(dem.grid_x, dem.grid_y, dem.heights, cx, cy)
             height = osm.building_height(b["tags"])
+            shape, roof_h = osm.roof_info(b["tags"])
+            if shape and shape != "flat" and roof_h is None:
+                roof_h = geo.default_roof_height(poly)
             bd = BuildingDef(
                 id=b["id"], name=osm.building_name(b["tags"], b["id"]),
-                poly=poly, terr_z=terr_z, height=height, tags=b["tags"],
+                poly=poly, terr_z=terr_z, height=height,
+                roof_shape=shape, roof_h=roof_h or 0.0, tags=b["tags"],
             )
             scene.buildings.append(bd)
-            geom = geo.building_prism(poly, terr_z - SINK, height + SINK)
+            geom = geo.building_mesh(poly, terr_z - SINK, height + SINK,
+                                     shape, (roof_h or None))
             if geom is None:
                 continue
             bv, bf = geom
             objects.append(_object_payload(
                 bd.id, "building", bd.name, bv, bf,
-                {"height": height, "area": round(poly.area, 1)},
+                {"height": height, "area": round(poly.area, 1),
+                 "roof": shape or "flat"},
             ))
 
     _cache(scene)
@@ -197,7 +205,8 @@ def export_stl(sid: str, included_ids: list[str], scale_mm: float,
         poly_s = sa.scale(b.poly, xfact=factor, yfact=factor, origin=(0, 0))
         base_z = (b.terr_z - SINK) * vfac
         height = (b.height * hscale + SINK) * vfac
-        geom = geo.building_prism(poly_s, base_z, height)
+        roof_h = (b.roof_h * vfac) if b.roof_h > 0 else None
+        geom = geo.building_mesh(poly_s, base_z, height, b.roof_shape, roof_h)
         if geom is None:
             continue
         V, F = geom

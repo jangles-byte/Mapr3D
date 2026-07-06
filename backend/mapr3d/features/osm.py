@@ -82,6 +82,24 @@ def building_height(tags: dict, default: float = 6.0) -> float:
     return default
 
 
+def roof_info(tags: dict) -> tuple[str, float | None]:
+    """(roof shape, roof height in meters or None) from Simple 3D Buildings tags."""
+    shape = (tags.get("roof:shape") or "").lower().strip()
+    roof_h: float | None = None
+    raw = tags.get("roof:height")
+    if raw:
+        try:
+            roof_h = float(str(raw).replace("m", "").split()[0])
+        except (ValueError, IndexError):
+            pass
+    if roof_h is None and tags.get("roof:levels"):
+        try:
+            roof_h = float(str(tags["roof:levels"]).split()[0]) * 2.5
+        except (ValueError, IndexError):
+            pass
+    return shape, roof_h
+
+
 def building_name(tags: dict, fallback_id: str) -> str:
     """A human label for a footprint, avoiding raw tag values like "yes"."""
     if tags.get("name"):

@@ -4,8 +4,28 @@ from __future__ import annotations
 
 import httpx
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# Overpass is frequently rate-limited/busy; try mirrors in order.
+OVERPASS_URLS = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+)
 UA = {"User-Agent": "Mapr3D/0.1 (local 3D studio)"}
+
+
+def _overpass_query(query: str, timeout: float) -> dict:
+    last_exc: Exception | None = None
+    with httpx.Client(timeout=timeout, headers=UA) as client:
+        for url in OVERPASS_URLS:
+            try:
+                r = client.post(url, data={"data": query})
+                r.raise_for_status()
+                return r.json()
+            except Exception as ex:  # rate limit / timeout / mirror down
+                last_exc = ex
+                continue
+    raise last_exc if last_exc else RuntimeError("no Overpass endpoint responded")
 
 
 def fetch_buildings(w: float, s: float, e: float, n: float,
@@ -13,8 +33,7 @@ def fetch_buildings(w: float, s: float, e: float, n: float,
     """Return building footprints as ``[{id, rings, tags}]`` in lon/lat.
 
     ``rings`` is a list of outer rings (a way has one; a multipolygon may have
-    several). Raises on network failure so the caller can decide to continue
-    without buildings.
+    several). Raises if every Overpass mirror fails.
     """
     query = (
         "[out:json][timeout:40];"
@@ -24,10 +43,7 @@ def fetch_buildings(w: float, s: float, e: float, n: float,
         ");"
         "out geom;"
     )
-    with httpx.Client(timeout=timeout, headers=UA) as client:
-        r = client.post(OVERPASS_URL, data={"data": query})
-        r.raise_for_status()
-        data = r.json()
+    data = _overpass_query(query, timeout)
 
     out: list[dict] = []
     for el in data.get("elements", []):
@@ -67,4 +83,16 @@ def building_height(tags: dict, default: float = 6.0) -> float:
 
 
 def building_name(tags: dict, fallback_id: str) -> str:
-    return tags.get("name") or tags.get("building") or fallback_id.split("/")[-1]
+    """A human label for a footprint, avoiding raw tag values like "yes"."""
+    if tags.get("name"):
+        return tags["name"]
+    hn, street = tags.get("addr:housenumber"), tags.get("addr:street")
+    if hn and street:
+        return f"{hn} {street}"
+    btype = tags.get("building", "")
+    if btype and btype not in ("yes", "true", "1"):
+        return btype.replace("_", " ").capitalize()
+    if hn:
+        return f"No. {hn}"
+    num = fallback_id.split("/")[-1]
+    return f"Building {num[-4:]}" if num.isdigit() else "Building"

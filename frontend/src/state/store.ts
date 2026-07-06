@@ -47,6 +47,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     zExaggeration: 1.5,
     includeBuildings: true,
     demSource: "auto",
+    union: false,
   },
 
   loadConfig: async () => {
@@ -140,6 +141,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         baseThicknessMM: params.baseThicknessMM,
         zExaggeration: params.zExaggeration,
         edits,
+        union: params.union,
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

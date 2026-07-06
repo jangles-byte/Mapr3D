@@ -44,6 +44,7 @@ export async function exportScene(args: {
   baseThicknessMM: number;
   zExaggeration: number;
   edits: Record<string, { hidden?: boolean; heightScale?: number }>;
+  union: boolean;
 }): Promise<Blob> {
   const res = await fetch(`${API}/scene/export`, {
     method: "POST",

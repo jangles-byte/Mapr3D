@@ -64,6 +64,15 @@ export default function Settings() {
         Include buildings (OpenStreetMap)
       </label>
 
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={p.union}
+          onChange={(e) => setParam("union", e.target.checked)}
+        />
+        Merge into one solid on export (slower)
+      </label>
+
       <label className="field">
         <span>Elevation source</span>
         <select

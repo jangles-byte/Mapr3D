@@ -180,13 +180,22 @@ def export_stl(sid: str, included_ids: list[str], scale_mm: float,
     if not meshes:
         raise ValueError("no objects selected for export")
 
-    combined = trimesh.util.concatenate(meshes)
-
+    combined = None
     if do_union and len(meshes) > 1:
         try:
-            combined = trimesh.boolean.union(meshes)
+            # manifold3d requires each input to be a valid volume (watertight +
+            # consistent winding), so repair before unioning.
+            prepared = []
+            for m in meshes:
+                m.merge_vertices()
+                trimesh.repair.fix_normals(m)
+                prepared.append(m)
+            combined = trimesh.boolean.union(prepared)
         except Exception:
-            pass  # fall back to concatenated solids
+            combined = None  # fall back to concatenated solids
+
+    if combined is None:
+        combined = trimesh.util.concatenate(meshes)
 
     combined.merge_vertices()
     trimesh.repair.fix_normals(combined)

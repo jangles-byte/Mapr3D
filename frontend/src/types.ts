@@ -43,4 +43,5 @@ export interface ExportParams {
   zExaggeration: number;
   includeBuildings: boolean;
   demSource: "auto" | "opentopography" | "synthetic";
+  union: boolean;
 }
